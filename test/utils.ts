@@ -1,3 +1,5 @@
+import * as stream from "stream";
+
 type RequestMockOptions = {
     reqError?: Error,
     resError?: Error,
@@ -29,6 +31,7 @@ export class RequestMock {
     private _callbacks = new Callbacks();
     private _opts: RequestMockOptions = {};
     private _request?: jest.Mock<any, any>;
+    private _writeable?: stream.Writable;
 
     get request(): jest.Mock<any, any> {
         return this._request || (this._request = this.mockRequest());
@@ -38,10 +41,10 @@ export class RequestMock {
         this._opts = {...opts};
     }
 
-    private onRequestEnd(callback: Function) {
+    private startRequest(callback: Function) {
         const {reqError} = this._opts;
         if (reqError) {
-            this._callbacks.each('req:error', reqError);
+            this._writeable!.emit('error', reqError);
         } else {
             const res = this.mockResponse();
             Promise.resolve().then(() => callback(res)).then(() => this.emitResponse());
@@ -84,21 +87,13 @@ export class RequestMock {
 
         return jest.fn((opts, callback) => {
             this._callbacks.clear();
-
-            return {
-                on: jest.fn(function (name, cb) {
-                    if (name === 'error') {
-                        that._callbacks.push('req:error', cb);
-                    }
-                    // @ts-ignore
-                    return this;
-                }),
-                end: jest.fn(function () {
-                    that.onRequestEnd(callback);
-                    // @ts-ignore
-                    return this;
-                })
-            };
+            this._writeable = new stream.Writable({
+                write(chunk: any, encoding: BufferEncoding, callback: (error?: (Error | null)) => void): void {
+                    callback()
+                }
+            });
+            this._writeable.once('finish', () => that.startRequest(callback));
+            return this._writeable;
         });
     }
 }

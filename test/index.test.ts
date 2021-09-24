@@ -1,6 +1,7 @@
 import http from 'http';
 import {Tomcat} from '../src/index';
 import {RequestMock} from './utils';
+import fs from "fs";
 
 const request = http.request;
 const requestMock = new RequestMock();
@@ -20,7 +21,7 @@ afterEach(() => {
 
 });
 
-describe('not interactive mode', function () {
+xdescribe('not interactive mode', function () {
 
     let tomcat: Tomcat;
 
@@ -62,23 +63,55 @@ describe('not interactive mode', function () {
 
 });
 
-describe('manager method tests', () =>{
+describe('manager method tests', () => {
     let tomcat: Tomcat;
 
     beforeEach(() => {
         tomcat = new Tomcat({interactiveMode: false, url: 'www.test.com', user: 'u', password: 'p'});
     });
 
-    test('test serverInfo method', async ()=>{
+    xtest('test serverInfo method', async () => {
         requestMock.setOptions({resData: 'OK - success'});
-
         await expect(tomcat.serverInfo()).resolves.toMatch('success');
-
         expect(requestMock.request).toBeCalledTimes(1);
-        expect(requestMock.request).toBeCalledWith()
+        expect(requestMock.request.mock.calls[0][0]).toMatchObject({method: 'get', path: '/manager/text/serverinfo'});
     })
 
+    xtest('test list method', async () => {
+        requestMock.setOptions({resData: 'OK - success'});
+        await expect(tomcat.list()).resolves.toMatch('success');
+        expect(requestMock.request).toBeCalledTimes(1);
+        expect(requestMock.request.mock.calls[0][0]).toMatchObject({method: 'get', path: '/manager/text/list'});
+    })
 
+    xtest('test unDeploy method', async () => {
+        requestMock.setOptions({resData: 'OK - success'});
+        await expect(tomcat.unDeploy('site')).resolves.toMatch('success');
+        expect(requestMock.request).toBeCalledTimes(1);
+        expect(requestMock.request.mock.calls[0][0]).toMatchObject({
+            method: 'get',
+            path: '/manager/text/undeploy?path=site'
+        });
+    })
+
+    test('test deploy method with stream.Readable', async () => {
+        requestMock.setOptions({resData: 'OK - success'});
+        const stream = fs.createReadStream('./test/fixtures/site.war');
+        try {
+            await expect(tomcat.deploy('')).rejects.toThrow();
+            await expect(tomcat.deploy(stream)).rejects.toThrow();
+
+            await expect(tomcat.deploy(stream, 'site')).resolves.toMatch('success')
+            expect(requestMock.request).toBeCalledTimes(1);
+            expect(requestMock.request.mock.calls[0][0]).toMatchObject({
+                method: 'put',
+                path: '/manager/text/deploy?path=/site&update=true'
+            });
+
+        } finally {
+            stream.close();
+        }
+    })
 
 });
 
