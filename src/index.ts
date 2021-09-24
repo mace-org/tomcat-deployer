@@ -37,7 +37,7 @@ export class Tomcat {
         if (opts.user) {
             this.setAuth(opts.user, opts.password);
         }
-        if (this._interactiveMode && (!this._opts.hostname || !this._opts.auth)) {
+        if (!this._interactiveMode && (!this._opts.hostname || !this._opts.auth)) {
             throw new Error('非对话模式需要提供有效的 url 及 user、password 值！');
         }
     }
@@ -185,7 +185,7 @@ export class Tomcat {
                         } else {
                             const arr = /^(\S+)\s*-\s*(.+)$/s.exec(sb.join(''));
                             if (!arr) {
-                                error(new Error('无效的内容，非 tomcat 服务！'));
+                                error(new Error('invalid tomcat service !'));
                             } else if (arr[1] === 'OK') {
                                 resolve({code: 0, data: arr[2]});
                             } else {
@@ -206,10 +206,10 @@ export class Tomcat {
      */
     private async normalRequest(path: string, getBody?: () => stream.Readable) {
         if (!this._opts.hostname) {
-            throw new Error('tomcat url 无效！');
+            throw new Error('invalid tomcat url !');
         }
         if (!this._opts.auth) {
-            throw new Error('tomcat 管理用户及密码无效！');
+            throw new Error('invalid tomcat user !');
         }
         const result = await this.http(path, getBody);
         if (result.code) {
