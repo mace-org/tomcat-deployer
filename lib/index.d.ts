@@ -69,6 +69,7 @@ declare module "index" {
          * @param contextPath
          */
         unDeploy(contextPath: string): Promise<string>;
+        private checkContextPath;
         /**
          * 实际的 http 请求，返回的 code 说明：
          * -2：请求过程异常或返回内容无效

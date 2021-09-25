@@ -38,7 +38,7 @@ export class Tomcat {
             this.setAuth(opts.user, opts.password);
         }
         if (!this._interactiveMode && (!this._opts.hostname || !this._opts.auth)) {
-            throw new Error('非对话模式需要提供有效的 url 及 user、password 值！');
+            throw new Error('Not interactive mode must provide url and user params.');
         }
     }
 
@@ -48,12 +48,20 @@ export class Tomcat {
      */
     setUrl(url: string) {
         if (!url) {
+            if ('protocol' in this._opts || 'hostname' in this._opts || 'port' in this._opts) {
+                delete this._opts.hostname;
+                delete this._opts.protocol;
+                delete this._opts.port;
+                return true;
+            }
             return false;
         }
-        const arr = /^\s*(https?:\/\/)?([^\s:\/]+)(:\d+)?\s*$/i.exec(url);
+
+        const arr = /^\s*(http:\/\/)?([^\s:\/]+)(:\d+)?\s*$/i.exec(url);
         if (!arr) {
             return false;
         }
+
         const protocol = arr[1] ? arr[1].slice(0, -2) : 'http:';
         const hostname = arr[2];
         const port = arr[3] ? arr[3].slice(1) : '8080';
@@ -111,7 +119,7 @@ export class Tomcat {
      */
     async deploy(warFile: string | stream.Readable, contextPath?: string | null, force: boolean = true): Promise<string> {
         if (!warFile) {
-            throw new Error('warFile 参数不能为空！');
+            throw new Error('The war file is required.');
         }
 
         let getBody: () => stream.Readable;
@@ -119,15 +127,15 @@ export class Tomcat {
 
         if (typeof warFile === 'string') {
             if (!fs.existsSync(warFile)) {
-                throw new Error(`文件“${warFile}”不存在！`);
+                throw new Error(`The file “${warFile}” is not exists.`);
             }
             const ext = path.extname(warFile);
             if (ext?.toLowerCase() !== '.war') {
-                throw new Error(`文件“${warFile}”不是有效的 war 包！`);
+                throw new Error(`The file “${warFile}” is not valid war file.`);
             }
             if (!contextPath) {
                 const name = path.basename(warFile);
-                contextPath = name.substr(0, name.length - ext.length);
+                contextPath = '/' + name.substr(0, name.length - ext.length);
             }
             getBody = () => {
                 if (stream) {
@@ -137,14 +145,13 @@ export class Tomcat {
                 return stream;
             };
         } else {
-            if (!contextPath) {
-                throw new Error('contextPath 参数不能为空！');
-            }
             getBody = () => warFile;
         }
 
+        this.checkContextPath(contextPath);
+
         try {
-            return await this.request(`/manager/text/deploy?path=/${contextPath}&update=${force}`, getBody);
+            return await this.request(`/manager/text/deploy?path=${contextPath}&update=${force}`, getBody);
         } finally {
             stream?.close();
         }
@@ -155,10 +162,14 @@ export class Tomcat {
      * @param contextPath
      */
     async unDeploy(contextPath: string): Promise<string> {
-        if (!contextPath) {
-            throw new Error('contextPath 参数不能为空！');
-        }
+        this.checkContextPath(contextPath);
         return await this.request(`/manager/text/undeploy?path=${contextPath}`);
+    }
+
+    private checkContextPath(contextPath?: string | null) {
+        if (!contextPath || !contextPath.startsWith('/')) {
+            throw new Error('The context path is required and must start with a slash character. To reference the ROOT web application use "/".');
+        }
     }
 
     /**
@@ -170,7 +181,7 @@ export class Tomcat {
      * @param path
      * @param getBody
      */
-    private async http(path: string, getBody?: () => stream.Readable) {
+    private http(path: string, getBody?: () => stream.Readable) {
         const opts = {...this._opts, method: getBody ? 'put' : 'get', path};
         return new Promise<{ code: number, data?: any }>((resolve, reject) => {
             const error = (err: Error) => resolve({code: -2, data: err});
@@ -185,7 +196,7 @@ export class Tomcat {
                         } else {
                             const arr = /^(\S+)\s*-\s*(.+)$/s.exec(sb.join(''));
                             if (!arr) {
-                                error(new Error('invalid tomcat service !'));
+                                error(new Error('Invalid tomcat server.'));
                             } else if (arr[1] === 'OK') {
                                 resolve({code: 0, data: arr[2]});
                             } else {
@@ -206,10 +217,10 @@ export class Tomcat {
      */
     private async normalRequest(path: string, getBody?: () => stream.Readable) {
         if (!this._opts.hostname) {
-            throw new Error('invalid tomcat url !');
+            throw new Error('Invalid tomcat url.');
         }
         if (!this._opts.auth) {
-            throw new Error('invalid tomcat user !');
+            throw new Error('Invalid tomcat user.');
         }
         const result = await this.http(path, getBody);
         if (result.code) {
@@ -229,7 +240,7 @@ export class Tomcat {
             while (true) {
                 if (!this._opts.hostname) {
                     const url = await interaction.question('请输入 tomcat 部署地址：');
-                    if (!this.setUrl(url) || !this._opts.hostname) {
+                    if (!url || !this.setUrl(url) || !this._opts.hostname) {
                         url && await interaction.error(`tomcat 部署地址“${url}”无效！`);
                         continue;
                     }
@@ -240,18 +251,13 @@ export class Tomcat {
                         continue;
                     }
                     const pass = await interaction.question('请输入密码：');
-                    if (!this.setAuth(user, pass) || !this._opts.auth) {
-                        await interaction.error(`用户名“${user}”密码无效！`);
-                        continue;
-                    }
+                    this.setAuth(user, pass);
                 }
                 const result = await this.http(path, getBody);
                 if (result.code === -2) {
-                    delete this._opts.hostname;
-                    delete this._opts.protocol;
-                    delete this._opts.port;
+                    this.setUrl('');
                 } else if (result.code === -1) {
-                    delete this._opts.auth;
+                    this.setAuth('');
                 } else {
                     if (result.code) {
                         throw (result.data instanceof Error ? result.data : new Error(result.data));
