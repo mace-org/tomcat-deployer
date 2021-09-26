@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as  stream from 'stream';
-import Interaction from './interaction';
+import {question} from './utils';
 import * as  fs from 'fs';
 import * as  path from 'path';
 
@@ -192,7 +192,7 @@ export class Tomcat {
                     .on('error', error)
                     .on('end', () => {
                         if (res.statusCode === 401) {
-                            resolve({code: -1});
+                            resolve({code: -1, data: new Error('Invalid user or password.')});
                         } else {
                             const arr = /^(\S+)\s*-\s*(.+)$/s.exec(sb.join(''));
                             if (!arr) {
@@ -235,38 +235,35 @@ export class Tomcat {
      * @param getBody
      */
     private async interactiveRequest(path: string, getBody?: () => stream.Readable) {
-        const interaction = new Interaction();
-        try {
-            while (true) {
-                if (!this._opts.hostname) {
-                    const url = await interaction.question('请输入 tomcat 部署地址：');
-                    if (!url || !this.setUrl(url) || !this._opts.hostname) {
-                        url && await interaction.error(`tomcat 部署地址“${url}”无效！`);
-                        continue;
-                    }
-                }
-                if (!this._opts.auth) {
-                    const user = await interaction.question('请输入用户名：');
-                    if (!user) {
-                        continue;
-                    }
-                    const pass = await interaction.question('请输入密码：');
-                    this.setAuth(user, pass);
-                }
-                const result = await this.http(path, getBody);
-                if (result.code === -2) {
-                    this.setUrl('');
-                } else if (result.code === -1) {
-                    this.setAuth('');
-                } else {
-                    if (result.code) {
-                        throw (result.data instanceof Error ? result.data : new Error(result.data));
-                    }
-                    return result.data;
+        while (true) {
+            if (!this._opts.hostname) {
+                const url = await question('tomcat url > ');
+                if (!url || !this.setUrl(url) || !this._opts.hostname) {
+                    url && console.error(`The tomcat url “${url}” is invalid.`);
+                    continue;
                 }
             }
-        } finally {
-            interaction.close();
+            if (!this._opts.auth) {
+                const user = await question('tomcat user > ');
+                if (!user) {
+                    continue;
+                }
+                const pass = await question('tomcat password > ');
+                this.setAuth(user, pass);
+            }
+            const result = await this.http(path, getBody);
+            if (result.code === -2) {
+                console.error(result.data);
+                this.setUrl('');
+            } else if (result.code === -1) {
+                console.error(result.data);
+                this.setAuth('');
+            } else {
+                if (result.code) {
+                    throw (result.data instanceof Error ? result.data : new Error(result.data));
+                }
+                return result.data;
+            }
         }
     }
 

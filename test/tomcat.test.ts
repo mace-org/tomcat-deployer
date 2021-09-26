@@ -1,16 +1,19 @@
-import {Tomcat} from "../src";
+import {Tomcat} from '../src';
 import nock from 'nock';
-import path from "path";
-import * as fs from "fs";
+import path from 'path';
+import * as fs from 'fs';
+import * as utils from '../src/utils';
 
-const questionMock = jest.fn();
-const errorMock = jest.fn();
-jest.mock('../src/interaction', () => {
-    return jest.fn(() => ({
-        question: questionMock,
-        error: errorMock,
-        close: jest.fn()
-    }))
+jest.mock('../src/utils');
+
+const {error} = console;
+
+beforeAll(() => {
+    console.error = jest.fn();
+});
+
+afterAll(() => {
+    console.error = error;
 });
 
 describe('options tests', () => {
@@ -20,9 +23,9 @@ describe('options tests', () => {
         expect(() => new Tomcat({interactiveMode: false, url: '', user: '', password: ''})).toThrow();
         expect(() => new Tomcat({interactiveMode: false, url: 'test.com', user: '', password: ''})).toThrow();
         expect(() => new Tomcat({interactiveMode: false, url: '', user: 'user', password: ''})).toThrow();
-    })
+    });
 
-    test("test default options", async () => {
+    test('test default options', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
@@ -30,9 +33,9 @@ describe('options tests', () => {
 
         const tomcat = new Tomcat({url: 'test.com', user: 'user', password: 'pass', interactiveMode: false});
         await expect(tomcat.serverInfo()).resolves.toMatch('default options');
-    })
+    });
 
-    test("test special options", async () => {
+    test('test special options', async () => {
         nock('http://my.test.com:8050')
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
@@ -45,9 +48,9 @@ describe('options tests', () => {
             interactiveMode: false
         });
         await expect(tomcat.serverInfo()).resolves.toMatch('special options');
-    })
+    });
 
-    test("test set options", () => {
+    test('test set options', () => {
         const tomcat = new Tomcat({url: 'test.com', user: 'user', password: 'pass', interactiveMode: false});
 
         expect(tomcat.setUrl('ftp://test.com')).toBeFalsy();
@@ -58,7 +61,7 @@ describe('options tests', () => {
         expect(tomcat.setAuth('')).toBeTruthy();
         expect(tomcat.setAuth('')).toBeFalsy();
         expect(tomcat.setAuth('user', 'pass')).toBeTruthy();
-    })
+    });
 });
 
 describe('request tests', () => {
@@ -77,9 +80,9 @@ describe('request tests', () => {
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
             .reply(200, 'FAIL - error');
-    })
+    });
 
-    test("test request", async () => {
+    test('test request', async () => {
         const tomcat = new Tomcat({url: 'invalid.com', user: 'invalid', password: 'invalid', interactiveMode: false});
         await expect(tomcat.serverInfo()).rejects.toThrow();
 
@@ -87,14 +90,14 @@ describe('request tests', () => {
         tomcat.setAuth('');
         await expect(tomcat.serverInfo()).rejects.toThrow();
 
-        tomcat.setUrl("test.com");
+        tomcat.setUrl('test.com');
         await expect(tomcat.serverInfo()).rejects.toThrow();
 
         tomcat.setAuth('user', 'pass');
         await expect(tomcat.serverInfo()).rejects.toThrow();
         await expect(tomcat.serverInfo()).resolves.toMatch('success');
         await expect(tomcat.serverInfo()).rejects.toThrow('error');
-    })
+    });
 });
 
 describe('manager method tests', () => {
@@ -102,27 +105,27 @@ describe('manager method tests', () => {
 
     beforeEach(() => {
         tomcat = new Tomcat({url: 'test.com', user: 'user', password: 'pass', interactiveMode: false});
-    })
+    });
 
-    test("test serverInfo method", async () => {
+    test('test serverInfo method', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
             .reply(200, 'OK - server info');
 
         await expect(tomcat.serverInfo()).resolves.toMatch('server info');
-    })
+    });
 
-    test("test list method", async () => {
+    test('test list method', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/list')
             .basicAuth({user: 'user', pass: 'pass'})
             .reply(200, 'OK - list');
 
         await expect(tomcat.list()).resolves.toMatch('list');
-    })
+    });
 
-    test("test unDeploy method", async () => {
+    test('test unDeploy method', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/undeploy')
             .query({path: '/test'})
@@ -132,9 +135,9 @@ describe('manager method tests', () => {
         await expect(tomcat.unDeploy('')).rejects.toThrow();
         await expect(tomcat.unDeploy('test')).rejects.toThrow();
         await expect(tomcat.unDeploy('/test')).resolves.toMatch('un deploy');
-    })
+    });
 
-    test("test deploy method", async () => {
+    test('test deploy method', async () => {
         nock('http://test.com:8080')
             .put('/manager/text/deploy', 'text file war for test')
             .query({path: '/test', update: true})
@@ -178,11 +181,11 @@ describe('manager method tests', () => {
         } finally {
             stream.close();
         }
-    })
+    });
 });
 
 describe('interactive mode tests', () => {
-    test("test interactive mode", async () => {
+    test('test interactive mode', async () => {
         const file = path.join(__dirname, '/fixtures/test.war');
 
         nock('http://test.com:8080')
@@ -203,22 +206,20 @@ describe('interactive mode tests', () => {
             .basicAuth({user: 'user', pass: 'pass'})
             .reply(200, 'OK - deploy');
 
-        questionMock
-            .mockReset()
-            .mockClear()
-            .mockResolvedValueOnce("") // url
-            .mockResolvedValueOnce("test.com") // url
-            .mockResolvedValueOnce("") // user
-            .mockResolvedValueOnce("invalid") // user
-            .mockResolvedValueOnce("") // pass
+        (utils.question as jest.Mock)
+            .mockResolvedValueOnce('') // url
+            .mockResolvedValueOnce('test.com') // url
+            .mockResolvedValueOnce('') // user
+            .mockResolvedValueOnce('invalid') // user
+            .mockResolvedValueOnce('') // pass
 
-            .mockResolvedValueOnce("test.com") // url
+            .mockResolvedValueOnce('test.com') // url
 
-            .mockResolvedValueOnce("user") // user
-            .mockResolvedValueOnce("pass") // pass
+            .mockResolvedValueOnce('user') // user
+            .mockResolvedValueOnce('pass'); // pass
 
         const tomcat = new Tomcat({interactiveMode: true});
         await expect(tomcat.deploy(file)).rejects.toThrow();
         await expect(tomcat.deploy(file)).resolves.toBeTruthy();
-    })
-})
+    });
+});

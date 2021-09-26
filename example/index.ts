@@ -1,48 +1,76 @@
-import Interaction from '../src/interaction';
+import {question} from '../src/utils';
+import {Tomcat} from '../src';
+import path from 'path';
 
+class Example {
+    private _tomcat = new Tomcat();
 
-async function run() {
-    // connect to tomcat server
-    // const tomcat = new Tomcat();
-    // await tomcat.serverInfo();
+    async run() {
+        const info = await this._tomcat.serverInfo();
+        await this.info('current tomcat server:', info);
 
-    const interaction = new Interaction();
-    try {
         while (true) {
-            const cmd = await interaction.question('tomcat deployer > ');
-            switch (cmd) {
+            const line = await question('example > ');
+            const arr = line.trim().split(/\s+/);
+            switch (arr[0]) {
                 case 'info':
-                    await interaction.info('you input info');
+                    await this.serverInfo();
                     break;
 
                 case 'list':
-                    await interaction.info('you input list');
+                    await this.list();
                     break;
 
                 case 'deploy':
-                    await interaction.info('you input deploy');
-                    break;
-
-                case 'force deploy':
-                    await interaction.info('you input force deploy');
+                    await this.deploy(arr[1] === 'true');
                     break;
 
                 case 'undeploy':
-                    await interaction.info('you input undeploy');
+                    await this.unDeploy();
                     break;
 
                 case 'quit':
                     return;
 
                 default:
-                    await interaction.error(`unknown command "${cmd}"`);
+                    this.error(`unknown command: ${arr[0]}`);
                     break;
             }
-            await interaction.info('');
         }
-    } finally {
-        interaction.close();
+    }
+
+    private async serverInfo() {
+        await this.call(() => this._tomcat.serverInfo());
+    }
+
+    private async list() {
+        await this.call(() => this._tomcat.list());
+    }
+
+    private async deploy(force: boolean) {
+        const file = path.join(__dirname, './example.war');
+        await this.call(() => this._tomcat.deploy(file, null, force));
+    }
+
+    private async unDeploy() {
+        await this.call(() => this._tomcat.unDeploy('/example'));
+    }
+
+    private call(func: () => Promise<string>) {
+        return func().then(
+            r => this.info(r),
+            e => this.error(e)
+        );
+    }
+
+    private info(...messages: string[]) {
+        console.info(messages.join('\n'));
+    }
+
+    private error(...messages: string[]) {
+        console.error(messages.join('\n'));
     }
 }
 
-run().then();
+new Example().run().then();
+

@@ -1,15 +1,6 @@
 /// <reference types="node" />
-declare module "interaction" {
-    import * as readline from 'readline';
-    export default class {
-        private _rl?;
-        constructor();
-        get interface(): readline.Interface;
-        question(query: string): Promise<string>;
-        close(): void;
-        info(message?: any, ...optionalParams: any[]): Promise<void>;
-        error(message?: any, ...optionalParams: any[]): Promise<void>;
-    }
+declare module "utils" {
+    export function question(query: string): Promise<string>;
 }
 declare module "index" {
     import * as stream from 'stream';
