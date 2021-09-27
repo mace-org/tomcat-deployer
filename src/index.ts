@@ -4,7 +4,7 @@ import {question} from './utils';
 import * as  fs from 'fs';
 import * as  path from 'path';
 
-type TomcatOptions = {
+export type TomcatOptions = {
     /** tomcat url */
     url?: string
     /** tomcat 管理用户名 */

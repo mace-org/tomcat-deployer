@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import * as stream from 'stream';
-declare type TomcatOptions = {
+export declare type TomcatOptions = {
     /** tomcat url */
     url?: string;
     /** tomcat 管理用户名 */
@@ -86,4 +86,3 @@ export declare class Tomcat {
      */
     private request;
 }
-export {};
