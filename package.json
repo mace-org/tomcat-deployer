@@ -1,11 +1,12 @@
 {
   "name": "tomcat-deployer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "repository": "https://github.com/mace-org/tomcat-deployer.git",
   "author": "mace <zhzjacky@163.com>",
   "license": "MIT",
+  "files": ["/lib"],
   "scripts": {
     "start": "ts-node ./example/index.ts",
     "build": "tsc",
