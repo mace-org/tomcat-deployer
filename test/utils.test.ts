@@ -11,16 +11,15 @@ const createInterfaceMock = (readline.createInterface as jest.Mock).mockImplemen
     };
 });
 
-test('test question function', async () => {
+test('question function', async () => {
     questionMock.mockImplementationOnce((q, cb) => cb('answer'));
     const result = await question('question');
 
     expect(createInterfaceMock).toBeCalledTimes(1);
+    expect(closeMock).toBeCalledTimes(1);
 
     expect(questionMock).toBeCalledTimes(1);
     expect(questionMock.mock.calls[0][0]).toEqual('question');
-
-    expect(closeMock).toBeCalledTimes(1);
 
     expect(result).toEqual('answer');
 });

@@ -130,7 +130,7 @@ export class Tomcat {
                 throw new Error(`The file “${warFile}” is not exists.`);
             }
             const ext = path.extname(warFile);
-            if (ext?.toLowerCase() !== '.war') {
+            if (ext.toLowerCase() !== '.war') {
                 throw new Error(`The file “${warFile}” is not valid war file.`);
             }
             if (!contextPath) {
@@ -260,7 +260,7 @@ export class Tomcat {
                 this.setAuth('');
             } else {
                 if (result.code) {
-                    throw (result.data instanceof Error ? result.data : new Error(result.data));
+                    throw new Error(result.data);
                 }
                 return result.data;
             }

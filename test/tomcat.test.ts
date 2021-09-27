@@ -18,14 +18,14 @@ afterAll(() => {
 
 describe('options tests', () => {
 
-    test('test constructor params', () => {
+    test('constructor params', () => {
         expect(() => new Tomcat({interactiveMode: true})).toBeTruthy();
         expect(() => new Tomcat({interactiveMode: false, url: '', user: '', password: ''})).toThrow();
         expect(() => new Tomcat({interactiveMode: false, url: 'test.com', user: '', password: ''})).toThrow();
         expect(() => new Tomcat({interactiveMode: false, url: '', user: 'user', password: ''})).toThrow();
     });
 
-    test('test default options', async () => {
+    test('default options', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
@@ -35,7 +35,7 @@ describe('options tests', () => {
         await expect(tomcat.serverInfo()).resolves.toMatch('default options');
     });
 
-    test('test special options', async () => {
+    test('special options', async () => {
         nock('http://my.test.com:8050')
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
@@ -50,7 +50,7 @@ describe('options tests', () => {
         await expect(tomcat.serverInfo()).resolves.toMatch('special options');
     });
 
-    test('test set options', () => {
+    test('set options', () => {
         const tomcat = new Tomcat({url: 'test.com', user: 'user', password: 'pass', interactiveMode: false});
 
         expect(tomcat.setUrl('ftp://test.com')).toBeFalsy();
@@ -61,6 +61,7 @@ describe('options tests', () => {
         expect(tomcat.setAuth('')).toBeTruthy();
         expect(tomcat.setAuth('')).toBeFalsy();
         expect(tomcat.setAuth('user', 'pass')).toBeTruthy();
+        expect(tomcat.setAuth('user', 'pass')).toBeFalsy();
     });
 });
 
@@ -82,7 +83,7 @@ describe('request tests', () => {
             .reply(200, 'FAIL - error');
     });
 
-    test('test request', async () => {
+    test('request', async () => {
         const tomcat = new Tomcat({url: 'invalid.com', user: 'invalid', password: 'invalid', interactiveMode: false});
         await expect(tomcat.serverInfo()).rejects.toThrow();
 
@@ -100,14 +101,14 @@ describe('request tests', () => {
     });
 });
 
-describe('manager method tests', () => {
+describe('manager functions tests', () => {
     let tomcat: Tomcat;
 
     beforeEach(() => {
         tomcat = new Tomcat({url: 'test.com', user: 'user', password: 'pass', interactiveMode: false});
     });
 
-    test('test serverInfo method', async () => {
+    test('serverInfo function', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/serverinfo')
             .basicAuth({user: 'user', pass: 'pass'})
@@ -116,7 +117,7 @@ describe('manager method tests', () => {
         await expect(tomcat.serverInfo()).resolves.toMatch('server info');
     });
 
-    test('test list method', async () => {
+    test('list function', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/list')
             .basicAuth({user: 'user', pass: 'pass'})
@@ -125,7 +126,7 @@ describe('manager method tests', () => {
         await expect(tomcat.list()).resolves.toMatch('list');
     });
 
-    test('test unDeploy method', async () => {
+    test('unDeploy function', async () => {
         nock('http://test.com:8080')
             .get('/manager/text/undeploy')
             .query({path: '/test'})
@@ -137,7 +138,7 @@ describe('manager method tests', () => {
         await expect(tomcat.unDeploy('/test')).resolves.toMatch('un deploy');
     });
 
-    test('test deploy method', async () => {
+    test('deploy function', async () => {
         nock('http://test.com:8080')
             .put('/manager/text/deploy', 'text file war for test')
             .query({path: '/test', update: true})
@@ -162,11 +163,13 @@ describe('manager method tests', () => {
             .reply(200, 'FAIL - already exists /tests');
 
         const file = path.join(__dirname, '/fixtures/test.war');
-        const wrongFile = path.join(__dirname, '/fixtures/test.zip');
+        const wrongFile1 = path.join(__dirname, '/fixtures/test.zip');
+        const wrongFile2 = path.join(__dirname, '/fixtures/test');
 
-        await expect(tomcat.deploy('')).rejects.toThrow();
-        await expect(tomcat.deploy('not exists file path')).rejects.toThrow();
-        await expect(tomcat.deploy(wrongFile)).rejects.toThrow();
+        await expect(tomcat.deploy('')).rejects.toThrow(/is required/);
+        await expect(tomcat.deploy('not exists file path')).rejects.toThrow(/is not exists/);
+        await expect(tomcat.deploy(wrongFile1)).rejects.toThrow(/is not valid war file/);
+        await expect(tomcat.deploy(wrongFile2)).rejects.toThrow(/is not valid war file/);
         await expect(tomcat.deploy(file, 'tests')).rejects.toThrow();
 
         await expect(tomcat.deploy(file)).resolves.toMatch('force deploy /test');
@@ -185,7 +188,7 @@ describe('manager method tests', () => {
 });
 
 describe('interactive mode tests', () => {
-    test('test interactive mode', async () => {
+    test('interactive mode', async () => {
         const file = path.join(__dirname, '/fixtures/test.war');
 
         nock('http://test.com:8080')
@@ -208,6 +211,7 @@ describe('interactive mode tests', () => {
 
         (utils.question as jest.Mock)
             .mockResolvedValueOnce('') // url
+            .mockResolvedValueOnce('ftp://invalid.com') // url
             .mockResolvedValueOnce('test.com') // url
             .mockResolvedValueOnce('') // user
             .mockResolvedValueOnce('invalid') // user
@@ -218,7 +222,7 @@ describe('interactive mode tests', () => {
             .mockResolvedValueOnce('user') // user
             .mockResolvedValueOnce('pass'); // pass
 
-        const tomcat = new Tomcat({interactiveMode: true});
+        const tomcat = new Tomcat();
         await expect(tomcat.deploy(file)).rejects.toThrow();
         await expect(tomcat.deploy(file)).resolves.toBeTruthy();
     });
